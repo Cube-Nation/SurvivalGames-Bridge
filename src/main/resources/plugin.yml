@@ -1,0 +1,14 @@
+author: DerFlash
+database: true
+generator: http://dinnerbone.com/minecraft/tools/pluginator/
+main: me.derflash.plugins.sgbridge.SGBridge
+name: SGBridge
+startup: postworld
+url: http://www.derflash.de/
+version: '1.0'
+depend: [Multiverse-Core, SurvivalGames]
+commands:
+    sgbridge:
+        aliases: [sgb]
+        description: 
+        usage: /sgb
