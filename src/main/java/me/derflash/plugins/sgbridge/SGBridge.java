@@ -9,9 +9,9 @@ import java.util.HashSet;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import net.minecraft.server.WorldServer;
+//import net.minecraft.server.WorldServer;
 
-import org.bukkit.Bukkit;
+//import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.command.Command;
@@ -388,10 +388,10 @@ public class SGBridge extends JavaPlugin implements Listener {
 		addLogEntry("Disabling arena");
 		game.disable();
 
-		getServer().broadcastMessage(ChatColor.AQUA + "Arena " + arenaID + " wird nun zurückgesetz! Einen kleinen Moment bitte...");
+		getServer().broadcastMessage(ChatColor.AQUA + "Arena " + arenaID + " wird nun zur√ºckgesetz! Einen kleinen Moment bitte...");
 		
 		getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
-			@SuppressWarnings("unchecked")
+			//@SuppressWarnings("unchecked")
 			public void run() {
 				
 				// wait to finish the reset
@@ -403,7 +403,7 @@ public class SGBridge extends JavaPlugin implements Listener {
 										ChatColor.AQUA
 												+ "Arena "
 												+ arenaID
-												+ " konnte leider nicht zurückgesetzt werden. Bitte informiert einen Admin. Danke!");
+												+ " konnte leider nicht zur√ºckgesetzt werden. Bitte informiert einen Admin. Danke!");
 						bridge.set("arena" + arenaID + ".status", "defect");
 						save();
 						return;
@@ -415,6 +415,7 @@ public class SGBridge extends JavaPlugin implements Listener {
 				}
 				
 				// bugfix
+				/*
 				mvWManager().removePlayersFromWorld("arena" + arenaID);
 				
 				World arenaWorld = Bukkit.getWorld("arena" + arenaID);
@@ -425,6 +426,7 @@ public class SGBridge extends JavaPlugin implements Listener {
 
 		        spawnWorldHandle.players.addAll(arenaWorldHandle.players);
 		        arenaWorldHandle.players.clear();
+		        */
 
 
 				addLogEntry("Unloading arena world");
