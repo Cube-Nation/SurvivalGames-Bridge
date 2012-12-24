@@ -155,7 +155,7 @@ public class SGBridge extends JavaPlugin implements Listener {
 
 		getServer().getPluginManager().registerEvents(this, this);
 
-		getServer().getScheduler().scheduleAsyncRepeatingTask(this, new Runnable() {
+		getServer().getScheduler().runTaskTimerAsynchronously(this, new Runnable() {
 			public void run() {
 				GameManager gm = gamemanager();
 				if (gm == null)
@@ -414,21 +414,6 @@ public class SGBridge extends JavaPlugin implements Listener {
 					maxWait--;
 				}
 				
-				// bugfix
-				/*
-				mvWManager().removePlayersFromWorld("arena" + arenaID);
-				
-				World arenaWorld = Bukkit.getWorld("arena" + arenaID);
-		        WorldServer arenaWorldHandle = ((org.bukkit.craftbukkit.CraftWorld) arenaWorld).getHandle();
-
-				World spawnWorld = Bukkit.getWorld("spawn");
-		        WorldServer spawnWorldHandle = ((org.bukkit.craftbukkit.CraftWorld) spawnWorld).getHandle();
-
-		        spawnWorldHandle.players.addAll(arenaWorldHandle.players);
-		        arenaWorldHandle.players.clear();
-		        */
-
-
 				addLogEntry("Unloading arena world");
 				if (!mvWManager().unloadWorld("arena" + arenaID)) {
 					addLogEntry("Failed!");
