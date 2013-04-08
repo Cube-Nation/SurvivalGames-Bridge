@@ -6,6 +6,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
@@ -34,6 +36,8 @@ import com.skitscape.survivalgames.GameManager;
 import com.skitscape.survivalgames.SettingsManager;
 
 public class SGBridge extends JavaPlugin implements Listener {
+    
+    static SGBridge plugin;
 
 	Pattern resetPattern = Pattern.compile("Arena [0-9]? reset\\.");
 	Pattern resetDonePattern = Pattern.compile("Arena reset done: [0-9]?\\.");
@@ -84,36 +88,6 @@ public class SGBridge extends JavaPlugin implements Listener {
 		return _wManager;
 	}
 
-	/*
-	 * public RegionManager rm() { if (_rm == null) { _rm =
-	 * wgPlugin().getGlobalRegionManager().get(spawn()); if (_rm == null) {
-	 * log.info("[CNMyZone] RegionManager not found"); this.setEnabled(false);
-	 * return null; } } return _rm; }
-	 * 
-	 * 
-	 * public WorldGuardPlugin wgPlugin() { if (_wgPlugin == null) { _wgPlugin =
-	 * (WorldGuardPlugin)
-	 * getServer().getPluginManager().getPlugin("WorldGuard"); if (_wgPlugin ==
-	 * null) { log.info("[CNMyZone] WGPlugin not found");
-	 * this.setEnabled(false); return null; } } return _wgPlugin; }
-	 * 
-	 * public World spawn() { if (_spawn == null) { _spawn =
-	 * Bukkit.getWorld("spawn"); if (_spawn == null) {
-	 * log.info("[SGAddon] World spawn not found"); this.setEnabled(false);
-	 * return null; } } return _spawn; }
-	 * 
-	 * 
-	 * public BukkitWorld bSpawn() { if (_bWorld == null) { _bWorld = new
-	 * BukkitWorld(spawn()); if (_bWorld == null) {
-	 * log.info("[CNMyZone] BWorld nova not found"); this.setEnabled(false);
-	 * return null; } } return _bWorld; }
-	 * 
-	 * public WorldEditPlugin wePlugin() { if (_wePlugin == null) { _wePlugin =
-	 * (WorldEditPlugin) getServer().getPluginManager().getPlugin("WorldEdit");
-	 * if (_wePlugin == null) { log.info("[CNMyZone] WEPlugin not found");
-	 * this.setEnabled(false); return null; } } return _wePlugin; }
-	 */
-
 	public GameManager gamemanager() {
 		if (_gm == null) {
 			_gm = GameManager.getInstance();
@@ -133,6 +107,8 @@ public class SGBridge extends JavaPlugin implements Listener {
 	}
 
 	public void onEnable() {
+	    SGBridge.plugin = this;
+	    
 		log = getServer().getLogger();
 
 		File dFolder = getDataFolder();
@@ -206,7 +182,7 @@ public class SGBridge extends JavaPlugin implements Listener {
 						
 					} else if (activeArenas.contains(gameID) && game.getGameMode() == GameMode.WAITING) {
 						activeArenas.remove(gameID);
-						foundGameToReset(game);
+						resetGame(game);
 						
 					}
 					
@@ -227,6 +203,7 @@ public class SGBridge extends JavaPlugin implements Listener {
 
 	public void addLogEntry(String line) {
 		try {
+		    getLogger().info(line);
 			logOut.write(line);
 			logOut.newLine();
 			logOut.flush();
@@ -322,7 +299,7 @@ public class SGBridge extends JavaPlugin implements Listener {
 				return true;
 			}
 
-			foundGameToReset(game);
+			resetGame(game);
 
 		} else if (args[0].equalsIgnoreCase("disable")) {
 			int _id = -1;
@@ -376,104 +353,158 @@ public class SGBridge extends JavaPlugin implements Listener {
 
 		return true;
 	}
+	
 
-	protected void foundGameToReset(final Game game) {
-		addLogEntry("-- Resetting Arena " + game.getID() + " [ " + new Date() + " ] --");
-		final int arenaID = game.getID();
-		final File worldFolder = getServer().getWorld("arena" + arenaID).getWorldFolder();
-
-		bridge.set("arena" + arenaID + ".status", "resetting");
-		save();
-
-		addLogEntry("Disabling arena");
-		game.disable();
-
-		getServer().broadcastMessage(ChatColor.AQUA + "Arena " + arenaID + " wird nun zurückgesetz! Einen kleinen Moment bitte...");
-		
-		getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
-			//@SuppressWarnings("unchecked")
-			public void run() {
-				
-				// wait to finish the reset
-				int maxWait = 10;
-				while (game.getMode() != GameMode.DISABLED) {
-					if (maxWait == 0) {
-						getServer()
-								.broadcastMessage(
-										ChatColor.AQUA
-												+ "Arena "
-												+ arenaID
-												+ " konnte leider nicht zurückgesetzt werden. Bitte informiert einen Admin. Danke!");
-						bridge.set("arena" + arenaID + ".status", "defect");
-						save();
-						return;
-					}
-					
-					try { Thread.sleep(1000); } catch (InterruptedException e) {}
-					
-					maxWait--;
-				}
-				
-				addLogEntry("Unloading arena world");
-				if (!mvWManager().unloadWorld("arena" + arenaID)) {
-					addLogEntry("Failed!");
-					// http://forums.bukkit.org/threads/unloadworld-returning-false.92367/
-					return;
-				}
-				
-				
-				try { Thread.sleep(1000); } catch (InterruptedException e) {}
-
-				addLogEntry("Deleting arena world");
-				if (!deleteDirectory(worldFolder)) {
-					addLogEntry("Failed!");
-					return;
-				}
-
-				try { Thread.sleep(1000); } catch (InterruptedException e) {}
-
-				addLogEntry("Unzipping new arena world");
-				Unzip.unzip(new File(getDataFolder(), "arena" + arenaID
-						+ ".zip"), worldFolder.getAbsolutePath());
-
-				try { Thread.sleep(1000); } catch (InterruptedException e) {}
-
-				addLogEntry("Loading arena world");
-				if (!mvWManager().loadWorld("arena" + arenaID)) {
-					addLogEntry("Failed!");
-					return;
-				}
-
-				try { Thread.sleep(1000); } catch (InterruptedException e) {}
-
-				addLogEntry("Enabling arena");
-				game.enable();
-				
-				long rs = bridge.getLong("arena" + arenaID + ".runningSince");
-				long nowTime = new Date().getTime();
-				if (rs > 0) {
-					long duration = nowTime - rs;
-					long lastDuration = bridge.getLong("arena" + arenaID + ".avgDuration");
-					if (lastDuration > 0) {
-						duration = (duration + lastDuration) / 2;
-					}
-					
-					bridge.set("arena" + arenaID + ".avgDuration", duration);
-				}
-
-				bridge.set("arena" + arenaID + ".maxplayers", SettingsManager.getInstance().getSpawnCount(arenaID));
-				bridge.set("arena" + arenaID + ".countdownSince", null);
-				bridge.set("arena" + arenaID + ".countdownTime", null);
-				bridge.set("arena" + arenaID + ".runningSince", null);
-				bridge.set("arena" + arenaID + ".lastReset", nowTime);
-				bridge.set("arena" + arenaID + ".status", "free");
-				bridge.set("arena" + arenaID + ".name", mvWManager().getMVWorld("arena"+arenaID).getAlias());
-				save();
-
-				getServer().broadcastMessage( ChatColor.GREEN + "Arena " + arenaID + " ist nun wieder bereit! Viel Spass!");
-			}
-		}, 20L);
-
-
+	protected void resetGame(final Game game) {
+        getServer().getScheduler().runTaskAsynchronously(this, new WorldResetter(game));        
 	}
+	
+	   private class WorldResetter extends Thread {
+	        Game game;
+	        
+	        WorldResetter(Game game) {
+	            this.game = game;
+	        }
+	        
+	        @Override
+	        public void run() {
+	            final int arenaID = game.getID();
+	            File worldFolder = getServer().getWorld("arena" + arenaID).getWorldFolder();
+
+	            try {
+	                
+	                // disable arena
+	                if (!getServer().getScheduler().callSyncMethod(SGBridge.plugin, new Callable<Boolean>() {
+	                    public Boolean call() throws Exception {
+	                        addLogEntry("-- Resetting Arena " + game.getID() + " [ " + new Date() + " ] --");
+	                        addLogEntry("Disabling arena");
+                            getServer().broadcastMessage(ChatColor.AQUA + "Arena " + arenaID + " wird nun zurückgesetz! Einen kleinen Moment bitte...");
+	                        
+	                        bridge.set("arena" + arenaID + ".status", "resetting");
+	                        save();
+
+	                        game.disable();
+
+	                        return new Boolean(true);
+	                    }
+	                }).get().booleanValue()) {
+	                    throw new Exception("Disabling arena: failed!");
+	                }
+	                
+	                
+	                // wait to finish the reset
+	                int maxWait = 10;
+	                while (game.getMode() != GameMode.DISABLED) {
+	                    if (maxWait == 0) {
+	                        getServer().broadcastMessage(ChatColor.AQUA + "Arena " + arenaID + " konnte leider nicht zurückgesetzt werden. Bitte informiert einen Admin. Danke!");
+	                        bridge.set("arena" + arenaID + ".status", "defect");
+	                        save();
+	                        
+	                        throw new Exception("Arena disable-wait failed");
+	                    }
+	                    
+	                    try { Thread.sleep(1000); } catch (InterruptedException e) {}
+	                    
+	                    maxWait--;
+	                }
+	                
+	                
+	                // unload the world (MV Unload)
+	                if (!getServer().getScheduler().callSyncMethod(SGBridge.plugin, new Callable<Boolean>() {
+	                    public Boolean call() throws Exception {
+	                        addLogEntry("Unloading arena world");
+	                        return new Boolean(mvWManager().unloadWorld("arena" + arenaID));
+	                    }
+	                }).get().booleanValue()) {
+	                    throw new Exception("Unloading arena world: failed!");
+	                }
+	                
+	                
+	                // wait
+	                try { Thread.sleep(1000); } catch (InterruptedException e) {}
+
+
+	                // delete the world folder
+	                addLogEntry("Deleting arena world");
+	                if (!deleteDirectory(worldFolder)) {
+	                    throw new Exception("Deleting arena world: Failed!");
+	                }
+	                
+
+	                // wait
+	                try { Thread.sleep(1000); } catch (InterruptedException e) {}
+
+	                
+	                // unzip clean world folder
+	                addLogEntry("Unzipping new arena world");
+	                Unzip.unzip(new File(getDataFolder(), "arena" + arenaID + ".zip"), worldFolder.getAbsolutePath());
+	                
+
+	                // wait
+	                try { Thread.sleep(1000); } catch (InterruptedException e) {}
+	                
+	                
+	                // reload world (MV Load)
+	                if (!getServer().getScheduler().callSyncMethod(SGBridge.plugin, new Callable<Boolean>() {
+	                    public Boolean call() throws Exception {
+	                        addLogEntry("Loading arena world");
+	                        return new Boolean(mvWManager().loadWorld("arena" + arenaID));
+	                    }
+	                }).get().booleanValue()) {
+	                    throw new Exception("Loading arena world: failed!");
+	                }
+
+
+	                // wait
+	                try { Thread.sleep(1000); } catch (InterruptedException e) {}
+
+	                
+	                // reenable game
+	                if (!getServer().getScheduler().callSyncMethod(SGBridge.plugin, new Callable<Boolean>() {
+	                    public Boolean call() throws Exception {
+	                        addLogEntry("Reenabling arena");
+	                        
+	                        game.enable();
+	                        
+	                        long rs = bridge.getLong("arena" + arenaID + ".runningSince");
+	                        long nowTime = new Date().getTime();
+	                        if (rs > 0) {
+	                            long duration = nowTime - rs;
+	                            long lastDuration = bridge.getLong("arena" + arenaID + ".avgDuration");
+	                            if (lastDuration > 0) {
+	                                duration = (duration + lastDuration) / 2;
+	                            }
+	                            
+	                            bridge.set("arena" + arenaID + ".avgDuration", duration);
+	                        }
+
+	                        bridge.set("arena" + arenaID + ".maxplayers", SettingsManager.getInstance().getSpawnCount(arenaID));
+	                        bridge.set("arena" + arenaID + ".countdownSince", null);
+	                        bridge.set("arena" + arenaID + ".countdownTime", null);
+	                        bridge.set("arena" + arenaID + ".runningSince", null);
+	                        bridge.set("arena" + arenaID + ".lastReset", nowTime);
+	                        bridge.set("arena" + arenaID + ".status", "free");
+	                        bridge.set("arena" + arenaID + ".name", mvWManager().getMVWorld("arena"+arenaID).getAlias());
+	                        save();
+
+	                        getServer().broadcastMessage( ChatColor.GREEN + "Arena " + arenaID + " ist nun wieder bereit! Viel Spass!");
+	                        
+	                        return new Boolean(true);
+	                    }
+	                }).get().booleanValue()) {
+	                    throw new Exception("Reenabling arena: failed!");
+	                }
+
+	                
+	            } catch (InterruptedException e) {
+	                e.printStackTrace();
+	            } catch (ExecutionException e) {
+	                e.printStackTrace();
+	            } catch (Exception e) {
+                    e.printStackTrace();
+                }
+	        }
+	        
+	    }
+	    
 }
