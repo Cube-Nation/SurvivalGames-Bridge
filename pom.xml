@@ -50,7 +50,7 @@
         <dependency>
 			<groupId>com.skitscape</groupId>
 			<artifactId>survivalgames</artifactId>
-			<version>0.4.11</version>
+			<version>0.5.0</version>
 		</dependency>
         <dependency>
 			<groupId>org.bukkit</groupId>

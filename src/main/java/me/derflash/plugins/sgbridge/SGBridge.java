@@ -30,10 +30,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.onarandombox.MultiverseCore.MultiverseCore;
 import com.onarandombox.MultiverseCore.api.MVWorldManager;
-import com.skitscape.survivalgames.Game;
-import com.skitscape.survivalgames.Game.GameMode;
-import com.skitscape.survivalgames.GameManager;
-import com.skitscape.survivalgames.SettingsManager;
+
+import org.mcsg.survivalgames.Game;
+import org.mcsg.survivalgames.Game.GameMode;
+import org.mcsg.survivalgames.GameManager;
+import org.mcsg.survivalgames.SettingsManager;
 
 public class SGBridge extends JavaPlugin implements Listener {
     
